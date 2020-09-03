@@ -1,11 +1,12 @@
 const express = require("express")
 const bcrypt = require("bcryptjs")
 const Users = require("./users-model")
+const usersMiddleWare = require("./users-middleware")
 
 
 const router = express.Router()
 
-router.get("/users", async (req, res, next) => {
+router.get("/users", usersMiddleWare.restrict(), async (req, res, next) => {
 	try {
 		res.json(await Users.find())
 	} catch(err) {
@@ -45,6 +46,17 @@ router.post("/login", async (req, res, next) => {
 				message: "Invalid Credentials",
 			})
 		}
+
+		//check that password is valid
+		const passwordValid = await bcrypt.compare(password, user.password)
+
+		if (!passwordValid) {
+			return res.status(401).json({
+				message: "Invalid Credentials",
+			})
+		}
+
+		req.session.user = user
 
 		res.json({
 			message: `Welcome ${user.username}!`,
