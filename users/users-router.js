@@ -1,12 +1,11 @@
 const express = require("express")
 const bcrypt = require("bcryptjs")
 const Users = require("./users-model")
-const usersMiddleWare = require("./users-middleware")
-
+const usersMiddleware = require("./users-middleware")
 
 const router = express.Router()
 
-router.get("/users", usersMiddleWare.restrict(), async (req, res, next) => {
+router.get("/users", usersMiddleware.restrict(), async (req, res, next) => {
 	try {
 		res.json(await Users.find())
 	} catch(err) {
@@ -27,6 +26,7 @@ router.post("/users", async (req, res, next) => {
 
 		const newUser = await Users.add({
 			username,
+			// hash the password with a time complexity of "14"
 			password: await bcrypt.hash(password, 14),
 		})
 
@@ -47,21 +47,38 @@ router.post("/login", async (req, res, next) => {
 			})
 		}
 
-		//check that password is valid
+		// compare the plain text password from the request body to the
+		// hash we have stored in the database. returns true/false.
 		const passwordValid = await bcrypt.compare(password, user.password)
 
+		// check if hash of request body password matches the hash we already have
 		if (!passwordValid) {
 			return res.status(401).json({
 				message: "Invalid Credentials",
 			})
 		}
 
+		// create a new session for the user
 		req.session.user = user
 
 		res.json({
 			message: `Welcome ${user.username}!`,
 		})
 	} catch(err) {
+		next(err)
+	}
+})
+
+router.get("/logout", usersMiddleware.restrict(), async (req, res, next) => {
+	try {
+		req.session.destroy((err) => {
+			if (err) {
+				next(err)
+			} else {
+				res.status(204).end()
+			}
+		})
+	} catch (err) {
 		next(err)
 	}
 })
